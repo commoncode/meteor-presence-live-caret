@@ -3,10 +3,10 @@ Package.describe({
 });
 
 Package.on_use(function (api) {
-  api.use(['presence', 'iron-router']);
-  api.use(['jquery', 'caret-position'], 'client');
+  api.use('jquery', 'client');
+  api.use(['coffeescript', 'presence', 'iron:router']);
 
-  api.add_files(['lib/jquery.caret.js', 'lib/live-caret.js'], 'client');
+  api.add_files(['lib/jquery.caret.js', 'lib/live-caret.coffee'], 'client');
 
   api.export('liveCaret', 'client');
 });

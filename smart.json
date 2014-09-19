@@ -1,13 +1,8 @@
 {
   "name": "presence-live-caret",
   "description": "Track caret position",
-  "homepage": "https://github.com/dburles/meteor-presence-live-caret",
-  "author": "David Burles",
+  "homepage": "https://github.com/commoncode/meteor-presence-live-caret",
+  "author": "CommonCode",
   "version": "0.1.0",
-  "git": "https://github.com/dburles/meteor-presence-live-caret.git",
-  "packages": {
-    "presence": "0.4.5",
-    "caret-position": "2.1.0-3",
-    "iron-router": "0.7.1"
-  }
+  "git": "https://github.com/commoncode/meteor-presence-live-caret.git"
 }
