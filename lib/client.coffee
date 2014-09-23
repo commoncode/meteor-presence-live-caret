@@ -5,19 +5,19 @@ liveCaret.bindTo = 'body'
 
 liveCaret.bindLiveCaret = ->
   eventMap = [
+    'form.live-caret input[type=email]'
     'form.live-caret input[type=text]'
     'form.live-caret textarea'
-    'form.live-caret input[type=email]'
   ].join ', '
 
   # keep track of our position and pass to our presence
   $(eventMap).bind('keyup click', ->
-    form = $(this).parents 'form'
+    $self = $(this)
     range = $(this).range()
 
     Session.set('caretRange',
-      form: form.attr 'id'
-      name: $(this).attr 'name'
+      form: $self.parents('form').attr 'id'
+      name: $self.attr 'name'
       start: range.start
       end: range.end
       length: range.length
@@ -26,25 +26,38 @@ liveCaret.bindLiveCaret = ->
 
 Presence.state = ->
   return {
-    route: Router.current() and Router.current().path
     caretRange: Session.get 'caretRange'
+    href: location.href
+    route: Router.current() and Router.current().path
   }
 
+getStyle = (element) ->
+  if window.getComputedStyle
+    return window.getComputedStyle element
+  else
+    return element.currentStyle
+
 createCaret = (id) ->
-  rect = document.createElement 'div'
+  box = $(liveCaret.bindTo).get 0
 
-  rect.setAttribute 'data-id', id
-  rect.style.position = 'absolute'
+  if not box then return false
 
-  # We must change this in order to define custom colors
-  rect.style.backgroundColor = _.first(_.shuffle(['red', 'green', 'orange', 'blue', 'purple']))
+  getColor = ->
+    presence = Presences.findOne _id: id
+    user = Meteor.users.findOne _id: presence and presence.userId
+    return user and user.profile.color or share.getRandomColor()
 
-  rect.style.height = '22px'
-  rect.style.width = '2px'
-  rect.style.display = 'none'
-  rect.className = 'lcaret'
+  caret = $("<div id='caret_#{id}'></div>")
+  caret.css(
+    background: getColor()
+    position: 'absolute'
+    display: 'none'
+    height: getStyle(box).fontSize
+    width: '2px'
+    zIndex: 1
+  )
 
-  $(liveCaret.bindTo).append rect
+  box.appendChild caret.get(0)
 
 getCaretCoordinates = (element, position, recalculate) ->
   # mirrored div
@@ -56,10 +69,7 @@ getCaretCoordinates = (element, position, recalculate) ->
   style = div.style
 
   # currentStyle for IE < 9
-  if window.getComputedStyle isnt undefined
-    computed = getComputedStyle(element)
-  else
-    computed = element.currentStyle
+  computed = getStyle(element)
 
   # default textarea styles
   style.whiteSpace = 'pre-wrap'
@@ -146,48 +156,38 @@ getCaretCoordinates = (element, position, recalculate) ->
 
   return coordinates
 
-setCaretPosition = (id, form, fieldName, coordinates) ->
-  field = $("form##{form} [name='#{fieldName}']").get 0
-  caret = $(".lcaret[data-id=#{id}]")
+# get the caretRange from the presence, calculate the coordinates
+updateCaret = (id, fields) ->
+  range = fields.state and fields.state.caretRange
 
-  if not field or not caret
-    return false
+  if not range then return false
 
-  caret.css(
+  field = $("form##{range.form} [name='#{range.name}']").get 0
+
+  if not field then return false
+
+  coordinates = getCaretCoordinates(field, range.end)
+
+  $("#caret_#{id}").css
     display: 'block'
     top: field.offsetTop - field.scrollTop + coordinates.top
     left: field.offsetLeft - field.scrollLeft + coordinates.left
-  )
-
-# get the caretRange from the presence, calculate the coordinates
-updateCaret = (id, fields) ->
-  caretRange = fields.state.caretRange
-  coordinates = getCaretCoordinates(
-    document.getElementsByName(caretRange.name)[0],
-    caretRange.end
-  )
-
-  setCaretPosition(id, caretRange.form, caretRange.name, coordinates)
 
 removeCaret = (id) ->
-  $(".lcaret[data-id=#{id}]").remove()
+  $("#caret_#{id}").remove()
 
 Meteor.startup ->
   Deps.autorun ->
     Presences.find(
       'state.route': Router.current() and Router.current().path
     ).observeChanges(
-      added: (id, fields) ->
-        createCaret(id)
+        added: (id, fields) ->
+          createCaret(id)
+          updateCaret(id, fields)
 
-        if fields.state.caretRange is undefined
-          return false
+        changed: (id, fields) ->
+          updateCaret(id, fields)
 
-        updateCaret(id, fields)
-
-      changed: (id, fields) ->
-        updateCaret(id, fields)
-
-      removed: (id) ->
-        removeCaret(id)
-    )
+        removed: (id) ->
+          removeCaret(id)
+      )
